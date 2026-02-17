@@ -865,7 +865,7 @@ Give: 1) Quick read on today 2) One thing to fix tomorrow 3) Call out any urgent
     const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+S.groqKey},
-      body:JSON.stringify({model:'llama3-8b-8192',messages:[{role:'user',content:prompt}],max_tokens:250,temperature:0.7})
+      body:JSON.stringify({model:'llama-3.3-70b-versatile',messages:[{role:'user',content:prompt}],max_tokens:250,temperature:0.7})
     });
     const data=await res.json();
     if(data.error) throw new Error(data.error.message);
