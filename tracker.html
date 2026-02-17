@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Daily Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#111;--surface2:#181818;--border:#222;
+  --accent:#e8ff47;--accent2:#47ffd4;--accent3:#ff6b47;
+  --text:#f0f0f0;--muted:#555;--muted2:#333;
+  --green:#4ade80;--red:#f87171;--yellow:#fbbf24;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow-x:hidden}
+
+/* NOISE OVERLAY */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* LAYOUT */
+.app{display:grid;grid-template-columns:240px 1fr;min-height:100vh;position:relative;z-index:1}
+
+/* SIDEBAR */
+.sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:28px 24px 20px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:4px}
+.logo-text{font-size:1.4rem;font-weight:800;letter-spacing:-1px}
+.logo-text span{color:var(--accent)}
+.nav{padding:16px 12px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:0.82rem;font-weight:600;color:var(--muted);transition:all .15s;margin-bottom:2px;border:1px solid transparent}
+.nav-item:hover{color:var(--text);background:var(--surface2)}
+.nav-item.active{color:var(--accent);background:#1a1c00;border-color:#2a2e00}
+.nav-icon{font-size:1rem;width:20px;text-align:center}
+.sidebar-footer{padding:16px;border-top:1px solid var(--border)}
+.month-badge{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.75rem;color:var(--muted);font-family:'Space Mono',monospace}
+.month-badge strong{color:var(--text);display:block;font-size:0.9rem;margin-bottom:2px}
+
+/* MAIN */
+.main{overflow-y:auto;padding:32px}
+.page{display:none}
+.page.active{display:block}
+
+/* PAGE HEADER */
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;flex-wrap:wrap;gap:16px}
+.page-title{font-size:2rem;font-weight:800;letter-spacing:-1px;line-height:1}
+.page-title span{color:var(--accent)}
+.page-sub{font-size:0.78rem;color:var(--muted);margin-top:6px;font-family:'Space Mono',monospace}
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px}
+.card-label{font-size:0.6rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:8px;font-family:'Space Mono',monospace}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(320px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+
+/* STAT CARDS */
+.stat-big{font-size:2.4rem;font-weight:800;letter-spacing:-1px;line-height:1}
+.stat-sub{font-size:0.72rem;color:var(--muted);margin-top:4px}
+.tag{display:inline-block;font-size:0.65rem;font-family:'Space Mono',monospace;padding:3px 8px;border-radius:4px;margin-top:8px;font-weight:700}
+.tag-g{background:#0d2a17;color:var(--green)}
+.tag-y{background:#2a1f00;color:var(--yellow)}
+.tag-r{background:#2a0d0d;color:var(--red)}
+.tag-a{background:#1a1c00;color:var(--accent)}
+
+/* TODAY LOG */
+.today-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.input-group{display:flex;flex-direction:column;gap:6px}
+.input-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-family:'Space Mono',monospace}
+.inp{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.9rem;width:100%;outline:none;transition:border-color .15s}
+.inp:focus{border-color:var(--accent)}
+.inp[type=range]{padding:6px 0;cursor:pointer;accent-color:var(--accent)}
+.mood-display{font-size:1.4rem;font-weight:800;color:var(--accent);text-align:center;min-width:32px}
+
+/* HABITS */
+.habit-list{display:flex;flex-direction:column;gap:4px}
+.habit-item{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);transition:all .15s;cursor:pointer;user-select:none}
+.habit-item:hover{border-color:#333}
+.habit-item.done{background:#0d1a0d;border-color:#1a3a1a}
+.habit-left{display:flex;align-items:center;gap:10px}
+.habit-cb{width:18px;height:18px;border-radius:4px;border:2px solid var(--border);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:0.7rem}
+.habit-item.done .habit-cb{background:var(--green);border-color:var(--green);color:#000}
+.habit-name{font-size:0.85rem;font-weight:600}
+.habit-streak{font-size:0.65rem;color:var(--muted);font-family:'Space Mono',monospace}
+
+/* VOICE */
+.voice-btn{display:flex;align-items:center;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 18px;cursor:pointer;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:600;color:var(--text);width:100%;transition:all .2s}
+.voice-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.voice-btn.recording{background:#001a15;border-color:var(--accent2);color:var(--accent2);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.voice-icon{font-size:1.3rem}
+.transcript-box{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:0.82rem;line-height:1.6;color:var(--muted);min-height:60px;margin-top:8px;font-style:italic}
+.transcript-box.has-text{color:var(--text);font-style:normal}
+
+/* AI FEEDBACK */
+.feedback-box{background:linear-gradient(135deg,#0d1a00,#001a0d);border:1px solid #1a3a00;border-radius:12px;padding:20px;font-size:0.83rem;line-height:1.7;position:relative;overflow:hidden}
+.feedback-box::before{content:'AI';position:absolute;top:12px;right:14px;font-size:0.6rem;font-family:'Space Mono',monospace;color:#2a4a00;letter-spacing:2px}
+.feedback-box .fb-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--accent);font-family:'Space Mono',monospace;margin-bottom:10px}
+.fb-text{color:#b0d090}
+.analyze-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--accent);color:#000;border:none;border-radius:8px;padding:12px 20px;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;width:100%;transition:all .15s;margin-top:10px}
+.analyze-btn:hover{background:#d4e830;transform:translateY(-1px)}
+.analyze-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+
+/* HEATMAP */
+.heatmap-wrap{overflow-x:auto}
+.heatmap-row{display:flex;align-items:center;gap:6px;margin-bottom:4px}
+.hm-label{width:160px;flex-shrink:0;font-size:0.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hm-dots{display:flex;gap:3px;flex-wrap:nowrap}
+.hm-dot{width:13px;height:13px;border-radius:3px;cursor:default;flex-shrink:0;transition:transform .1s}
+.hm-dot:hover{transform:scale(1.4)}
+.hm-pct{font-size:0.68rem;font-family:'Space Mono',monospace;min-width:32px;text-align:right}
+
+/* CHARTS */
+.mood-chart{display:flex;align-items:flex-end;gap:3px;height:70px}
+.mb-wrap{display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end}
+.mb{width:100%;border-radius:2px 2px 0 0;min-height:3px;transition:height .3s}
+.mb-lbl{font-size:0.5rem;color:var(--muted);margin-top:3px;font-family:'Space Mono',monospace}
+.bar-row-sm{display:flex;align-items:center;gap:6px;font-size:0.7rem;margin-bottom:3px}
+.bar-lbl-sm{width:20px;text-align:right;color:var(--muted);font-family:'Space Mono',monospace;flex-shrink:0}
+.bar-track{flex:1;background:var(--muted2);border-radius:3px;height:8px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;transition:width .4s}
+.bar-val-sm{width:42px;color:var(--muted);font-size:0.66rem}
+
+/* SETTINGS */
+.settings-section{margin-bottom:28px}
+.settings-title{font-size:0.65rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-family:'Space Mono',monospace;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.habit-edit-item{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.habit-edit-item .inp{flex:1}
+.del-btn{background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:8px 10px;cursor:pointer;font-size:0.8rem;transition:all .15s}
+.del-btn:hover{border-color:var(--red);color:var(--red)}
+.add-btn{display:flex;align-items:center;gap:8px;background:transparent;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:10px 14px;cursor:pointer;font-family:'Syne',sans-serif;font-size:0.82rem;width:100%;transition:all .15s;margin-top:4px}
+.add-btn:hover{border-color:var(--accent);color:var(--accent)}
+.save-btn{background:var(--accent);color:#000;border:none;border-radius:8px;padding:11px 20px;font-family:'Syne',sans-serif;font-size:0.85rem;font-weight:700;cursor:pointer;transition:all .15s}
+.save-btn:hover{background:#d4e830}
+.month-inp-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* WIN LOG */
+.win-item{padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:0.82rem;line-height:1.5;display:flex;gap:10px;align-items:flex-start}
+.win-date{font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);flex-shrink:0;margin-top:2px}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--accent);color:#000;padding:10px 18px;border-radius:8px;font-size:0.82rem;font-weight:700;z-index:999;transform:translateY(80px);transition:transform .3s;font-family:'Space Mono',monospace}
+.toast.show{transform:translateY(0)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--muted2);border-radius:4px}
+
+/* MOBILE */
+@media(max-width:768px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;bottom:0;top:auto;height:auto;width:100%;flex-direction:row;z-index:100;border-right:none;border-top:1px solid var(--border)}
+  .logo,.sidebar-footer{display:none}
+  .nav{display:flex;flex-direction:row;padding:8px;gap:4px;overflow-x:auto}
+  .nav-item{flex-direction:column;gap:3px;padding:8px 12px;font-size:0.6rem;white-space:nowrap}
+  .main{padding:20px;padding-bottom:100px}
+  .today-grid{grid-template-columns:1fr}
+}
+
+.section-gap{margin-bottom:20px}
+.flex-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dot-legend{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">Personal OS</div>
+      <div class="logo-text">TRACK<span>.</span></div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="showPage('today')" id="nav-today">
+        <span class="nav-icon">⚡</span> Today
+      </div>
+      <div class="nav-item" onclick="showPage('month')" id="nav-month">
+        <span class="nav-icon">📊</span> Month View
+      </div>
+      <div class="nav-item" onclick="showPage('wins')" id="nav-wins">
+        <span class="nav-icon">🏆</span> Win Log
+      </div>
+      <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
+        <span class="nav-icon">⚙️</span> Settings
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="month-badge">
+        <strong id="sidebar-month">February 2026</strong>
+        <span id="sidebar-day">Day 17 of 28</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TODAY PAGE -->
+    <div class="page active" id="page-today">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Today<span>.</span></div>
+          <div class="page-sub" id="today-date-label">Tuesday, February 17</div>
+        </div>
+        <button class="save-btn" onclick="saveDay()">Save Day →</button>
+      </div>
+
+      <!-- METRICS ROW -->
+      <div class="grid g4 section-gap">
+        <div class="card">
+          <div class="card-label">Mood (1–10)</div>
+          <div class="flex-row">
+            <input type="range" min="1" max="10" value="7" class="inp" id="inp-mood" oninput="document.getElementById('mood-val').textContent=this.value" style="flex:1"/>
+            <div class="mood-display" id="mood-val">7</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-label">Weight (lbs)</div>
+          <input type="number" class="inp" id="inp-weight" placeholder="169.0" step="0.1"/>
+        </div>
+        <div class="card">
+          <div class="card-label">Calories</div>
+          <input type="number" class="inp" id="inp-cals" placeholder="2200"/>
+        </div>
+        <div class="card">
+          <div class="card-label">Protein (g)</div>
+          <input type="number" class="inp" id="inp-protein" placeholder="175"/>
+        </div>
+      </div>
+
+      <div class="today-grid section-gap">
+        <div class="card">
+          <div class="card-label">Sleep (hours)</div>
+          <input type="number" class="inp" id="inp-sleep" placeholder="7.5" step="0.5"/>
+        </div>
+        <div class="card">
+          <div class="card-label">Daily Win</div>
+          <input type="text" class="inp" id="inp-win" placeholder="What was today's W?"/>
+        </div>
+      </div>
+
+      <!-- HABITS -->
+      <div class="card section-gap">
+        <div class="card-label" style="margin-bottom:14px">Habits — <span id="habit-count-label">0/0 done</span></div>
+        <div class="habit-list" id="habit-list"></div>
+      </div>
+
+      <!-- VOICE LOG -->
+      <div class="card section-gap">
+        <div class="card-label" style="margin-bottom:12px">Voice / Text Log</div>
+        <button class="voice-btn" id="voice-btn" onclick="toggleVoice()">
+          <span class="voice-icon" id="voice-icon">🎙️</span>
+          <span id="voice-label">Hold to record — or type below</span>
+        </button>
+        <div class="transcript-box" id="transcript">Your voice log will appear here...</div>
+        <textarea class="inp" id="text-log" placeholder="Or type your daily log here..." style="margin-top:8px;min-height:80px;resize:vertical;line-height:1.6"></textarea>
+        <button class="analyze-btn" id="analyze-btn" onclick="getAIFeedback()">
+          ✦ Analyze My Day &amp; Get Feedback
+        </button>
+      </div>
+
+      <!-- AI FEEDBACK -->
+      <div class="feedback-box section-gap" id="feedback-box">
+        <div class="fb-title">AI Feedback</div>
+        <div class="fb-text" id="feedback-text">Log your day above and hit analyze — you'll get personalized feedback on your habits, trajectory, and what to focus on tomorrow.</div>
+      </div>
+    </div>
+
+    <!-- MONTH PAGE -->
+    <div class="page" id="page-month">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Month<span>.</span></div>
+          <div class="page-sub" id="month-label-header">February 2026</div>
+        </div>
+      </div>
+
+      <div class="grid g4 section-gap" id="month-stats"></div>
+
+      <div class="grid g2 section-gap">
+        <div class="card">
+          <div class="card-label" style="margin-bottom:12px">Mood This Month</div>
+          <div class="mood-chart" id="month-mood-chart"></div>
+        </div>
+        <div class="card">
+          <div class="card-label" style="margin-bottom:12px">Weight Trend</div>
+          <svg style="width:100%;overflow:visible" viewBox="0 0 300 70" id="weight-svg"></svg>
+        </div>
+      </div>
+
+      <div class="card section-gap">
+        <div class="card-label" style="margin-bottom:14px">Habit Heatmap</div>
+        <div class="heatmap-wrap" id="month-heatmap"></div>
+      </div>
+
+      <div class="grid g2 section-gap">
+        <div class="card">
+          <div class="card-label" style="margin-bottom:12px">Calories by Day</div>
+          <div id="cal-bars"></div>
+        </div>
+        <div class="card">
+          <div class="card-label" style="margin-bottom:12px">Protein by Day</div>
+          <div id="prot-bars"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WINS PAGE -->
+    <div class="page" id="page-wins">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Wins<span>.</span></div>
+          <div class="page-sub">Every W this month</div>
+        </div>
+      </div>
+      <div id="wins-list"></div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Settings<span>.</span></div>
+          <div class="page-sub">Customize your tracker</div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Current Month</div>
+        <div class="month-inp-row">
+          <select class="inp" id="set-month" style="width:auto">
+            <option value="1">January</option><option value="2" selected>February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="inp" id="set-year" value="2026" style="width:100px"/>
+          <button class="save-btn" onclick="saveMonthSettings()">Update</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Habits — Edit / Add / Remove</div>
+        <div id="habits-editor"></div>
+        <button class="add-btn" onclick="addHabitField()">+ Add habit</button>
+        <div style="margin-top:12px">
+          <button class="save-btn" onclick="saveHabits()">Save Habits</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Monthly Goals</div>
+        <textarea class="inp" id="set-goals" style="min-height:120px;resize:vertical;line-height:1.6" placeholder="Paste or type your goals for the month..."></textarea>
+        <div style="margin-top:10px">
+          <button class="save-btn" onclick="saveGoals()">Save Goals</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Groq API Key (free AI feedback)</div>
+        <div style="font-size:0.75rem;color:var(--muted);margin-bottom:8px;line-height:1.6">
+          Get a free key at <strong style="color:var(--text)">console.groq.com</strong> → API Keys → Create key. Paste it below. Stored only in your browser.
+        </div>
+        <input type="password" class="inp" id="set-groq-key" placeholder="gsk_..."/>
+        <div style="margin-top:10px">
+          <button class="save-btn" onclick="saveGroqKey()">Save Key</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">Danger Zone</div>
+        <button class="del-btn" style="padding:10px 16px;font-size:0.8rem" onclick="clearAllData()">🗑 Clear all data for this month</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="toast" id="toast">Saved!</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────────
+const DEFAULT_HABITS = [
+  "Set daily goals","Caffeine cut-off","No phone first hour",
+  "Nutrient dense breakfast/lunch","Train / Recover","1 gallon of water",
+  "Creatine","Business growth action","Read 10 pages",
+  "Under 5.5hrs screentime","Wear retainer","No impulse spending",
+  "20 min personal deep work","Completed top-priority task","Meaningful connection"
+];
+
+let state = {
+  month: 2, year: 2026,
+  habits: [...DEFAULT_HABITS],
+  goals: "",
+  groqKey: "",
+  days: {} // keyed by "YYYY-MM-DD"
+};
+
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
+function getKey(){ return `tracker_${state.year}_${state.month}`; }
+function save(){ localStorage.setItem(getKey(), JSON.stringify(state)); }
+function load(){
+  const raw = localStorage.getItem(getKey());
+  if(raw){ const s = JSON.parse(raw); state = {...state,...s}; }
+  // load groq key globally
+  const gk = localStorage.getItem('groq_key');
+  if(gk) state.groqKey = gk;
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function today(){ return new Date().toISOString().split('T')[0]; }
+function todayDay(){ return new Date().getDate(); }
+function daysInMonth(m,y){ return new Date(y,m,0).getDate(); }
+function dateKey(d,m,y){ return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+function getDay(dk){ return state.days[dk] || {habits:{},mood:7,weight:null,cals:null,protein:null,sleep:null,win:'',log:''}; }
+const MONTHS = ['','January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function showToast(msg='Saved!'){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+
+// ─── NAV ──────────────────────────────────────────────────────────────────────
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.getElementById('nav-'+name).classList.add('active');
+  if(name==='month') renderMonthPage();
+  if(name==='wins') renderWinsPage();
+  if(name==='settings') renderSettings();
+}
+
+// ─── TODAY PAGE ───────────────────────────────────────────────────────────────
+function initToday(){
+  const dk = today();
+  const d = getDay(dk);
+  document.getElementById('inp-mood').value = d.mood||7;
+  document.getElementById('mood-val').textContent = d.mood||7;
+  document.getElementById('inp-weight').value = d.weight||'';
+  document.getElementById('inp-cals').value = d.cals||'';
+  document.getElementById('inp-protein').value = d.protein||'';
+  document.getElementById('inp-sleep').value = d.sleep||'';
+  document.getElementById('inp-win').value = d.win||'';
+  document.getElementById('text-log').value = d.log||'';
+
+  const now = new Date();
+  const opts={weekday:'long',month:'long',day:'numeric'};
+  document.getElementById('today-date-label').textContent = now.toLocaleDateString('en-US',opts);
+
+  renderHabitList(dk);
+}
+
+function renderHabitList(dk){
+  const d = getDay(dk);
+  const list = document.getElementById('habit-list');
+  list.innerHTML='';
+  let done=0;
+  state.habits.forEach(h=>{
+    const checked = d.habits[h]||false;
+    if(checked) done++;
+    const el=document.createElement('div');
+    el.className='habit-item'+(checked?' done':'');
+    el.onclick=()=>toggleHabit(dk,h);
+    el.innerHTML=`<div class="habit-left">
+      <div class="habit-cb">${checked?'✓':''}</div>
+      <div class="habit-name">${h}</div>
+    </div>
+    <div class="habit-streak">${checked?'✓ done':'—'}</div>`;
+    list.appendChild(el);
+  });
+  document.getElementById('habit-count-label').textContent=`${done}/${state.habits.length} done`;
+}
+
+function toggleHabit(dk,h){
+  if(!state.days[dk]) state.days[dk]=getDay(dk);
+  state.days[dk].habits[h] = !state.days[dk].habits[h];
+  save(); renderHabitList(dk);
+}
+
+function saveDay(){
+  const dk=today();
+  if(!state.days[dk]) state.days[dk]=getDay(dk);
+  const d=state.days[dk];
+  d.mood=parseInt(document.getElementById('inp-mood').value)||7;
+  d.weight=parseFloat(document.getElementById('inp-weight').value)||null;
+  d.cals=parseInt(document.getElementById('inp-cals').value)||null;
+  d.protein=parseInt(document.getElementById('inp-protein').value)||null;
+  d.sleep=parseFloat(document.getElementById('inp-sleep').value)||null;
+  d.win=document.getElementById('inp-win').value;
+  d.log=document.getElementById('text-log').value;
+  save(); showToast('Day saved ✓');
+}
+
+// ─── VOICE ────────────────────────────────────────────────────────────────────
+let recognition=null, isRecording=false;
+function toggleVoice(){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){
+    showToast('Voice not supported in this browser'); return;
+  }
+  if(isRecording){ recognition&&recognition.stop(); return; }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();
+  recognition.continuous=true; recognition.interimResults=true; recognition.lang='en-US';
+  recognition.onstart=()=>{
+    isRecording=true;
+    document.getElementById('voice-btn').classList.add('recording');
+    document.getElementById('voice-icon').textContent='🔴';
+    document.getElementById('voice-label').textContent='Recording... tap to stop';
+  };
+  recognition.onresult=e=>{
+    let interim='',final='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      if(e.results[i].isFinal) final+=e.results[i][0].transcript;
+      else interim+=e.results[i][0].transcript;
+    }
+    const box=document.getElementById('transcript');
+    box.textContent=(final||interim)||'Listening...';
+    box.classList.toggle('has-text',!!(final||interim));
+    if(final){
+      const ta=document.getElementById('text-log');
+      ta.value=(ta.value?ta.value+' ':'')+final;
+    }
+  };
+  recognition.onend=()=>{
+    isRecording=false;
+    document.getElementById('voice-btn').classList.remove('recording');
+    document.getElementById('voice-icon').textContent='🎙️';
+    document.getElementById('voice-label').textContent='Hold to record — or type below';
+  };
+  recognition.start();
+}
+
+// ─── AI FEEDBACK ──────────────────────────────────────────────────────────────
+async function getAIFeedback(){
+  const btn=document.getElementById('analyze-btn');
+  const box=document.getElementById('feedback-text');
+  const log=document.getElementById('text-log').value||document.getElementById('transcript').textContent;
+  const mood=document.getElementById('inp-mood').value;
+  const weight=document.getElementById('inp-weight').value;
+  const cals=document.getElementById('inp-cals').value;
+  const prot=document.getElementById('inp-protein').value;
+  const sleep=document.getElementById('inp-sleep').value;
+
+  // Habit summary
+  const dk=today();
+  const d=getDay(dk);
+  const doneHabits=state.habits.filter(h=>d.habits[h]);
+  const missedHabits=state.habits.filter(h=>!d.habits[h]);
+
+  // Month stats for context
+  const monthData=getMonthData();
+  const avgMood=(monthData.moods.reduce((a,b)=>a+b,0)/monthData.moods.length||0).toFixed(1);
+  const completionPct=Math.round(monthData.completions.reduce((a,b)=>a+b,0)/monthData.completions.length)||0;
+
+  const prompt=`You are a no-BS personal performance coach. Be direct, specific, and honest — like a smart friend who's also a coach. Max 150 words. No generic fluff.
+
+Today's data:
+- Mood: ${mood}/10
+- Sleep: ${sleep||'not logged'}h
+- Calories: ${cals||'not logged'}
+- Protein: ${prot||'not logged'}g
+- Weight: ${weight||'not logged'} lbs
+- Habits done (${doneHabits.length}/${state.habits.length}): ${doneHabits.join(', ')||'none'}
+- Habits missed: ${missedHabits.join(', ')||'none'}
+
+Month so far: avg mood ${avgMood}/10, avg completion ${completionPct}%
+Monthly goals: ${state.goals||'not set'}
+
+Daily log: "${log||'nothing logged'}"
+
+Give: 1) Quick read on today, 2) One specific thing to fix tomorrow, 3) One thing to keep doing. Be real.`;
+
+  if(!state.groqKey){
+    box.innerHTML=`<em style="color:var(--yellow)">⚠ Add your free Groq API key in Settings to enable AI feedback. Go to console.groq.com → API Keys → Create key.</em>`;
+    return;
+  }
+
+  btn.disabled=true; btn.textContent='Analyzing...';
+  box.textContent='Thinking...';
+
+  try{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+state.groqKey},
+      body:JSON.stringify({
+        model:'llama3-8b-8192',
+        messages:[{role:'user',content:prompt}],
+        max_tokens:250,temperature:0.7
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message);
+    box.textContent=data.choices[0].message.content;
+  }catch(e){
+    box.innerHTML=`<em style="color:var(--red)">Error: ${e.message}</em>`;
+  }
+  btn.disabled=false; btn.textContent='✦ Analyze My Day & Get Feedback';
+}
+
+// ─── MONTH DATA HELPER ────────────────────────────────────────────────────────
+function getMonthData(){
+  const dim=daysInMonth(state.month,state.year);
+  const moods=[],weights=[],cals=[],prots=[],completions=[];
+  for(let d=1;d<=dim;d++){
+    const dk=dateKey(d,state.month,state.year);
+    const day=state.days[dk];
+    if(!day) continue;
+    if(day.mood) moods.push(day.mood);
+    if(day.weight) weights.push({d,v:day.weight});
+    if(day.cals) cals.push({d,v:day.cals});
+    if(day.protein) prots.push({d,v:day.protein});
+    const done=state.habits.filter(h=>day.habits&&day.habits[h]).length;
+    completions.push(state.habits.length?Math.round((done/state.habits.length)*100):0);
+  }
+  return {moods,weights,cals,prots,completions,dim};
+}
+
+// ─── MONTH PAGE ───────────────────────────────────────────────────────────────
+function renderMonthPage(){
+  document.getElementById('month-label-header').textContent=MONTHS[state.month]+' '+state.year;
+  const {moods,weights,cals,prots,completions,dim}=getMonthData();
+
+  // Stats
+  const avgMood=moods.length?(moods.reduce((a,b)=>a+b,0)/moods.length).toFixed(1):'-';
+  const avgComp=completions.length?Math.round(completions.reduce((a,b)=>a+b,0)/completions.length):0;
+  const firstW=weights[0]?.v, lastW=weights[weights.length-1]?.v;
+  const wChange=firstW&&lastW?(lastW-firstW).toFixed(1):null;
+  const logsEntered=Object.keys(state.days).filter(k=>k.startsWith(`${state.year}-${String(state.month).padStart(2,'0')}`)).length;
+
+  const ms=document.getElementById('month-stats');
+  ms.innerHTML=`
+    <div class="card"><div class="card-label">Avg Mood</div><div class="stat-big" style="color:#f472b6">${avgMood}<span style="font-size:1rem;color:var(--muted)">/10</span></div><span class="tag tag-a">This month</span></div>
+    <div class="card"><div class="card-label">Avg Completion</div><div class="stat-big" style="color:var(--accent)">${avgComp}%</div><span class="tag ${avgComp>=60?'tag-g':avgComp>=40?'tag-y':'tag-r'}">${avgComp>=60?'On track':avgComp>=40?'Getting there':'Needs focus'}</span></div>
+    <div class="card"><div class="card-label">Weight Change</div><div class="stat-big" style="color:${wChange&&wChange<0?'var(--green)':'var(--yellow)'}">${wChange!==null?(wChange>0?'+':'')+wChange+' lbs':'—'}</div><span class="tag tag-a">${firstW||'?'} → ${lastW||'?'}</span></div>
+    <div class="card"><div class="card-label">Days Logged</div><div class="stat-big" style="color:var(--accent2)">${logsEntered}</div><div class="stat-sub">of ${dim} days</div></div>
+  `;
+
+  // Mood chart
+  const mc=document.getElementById('month-mood-chart');
+  mc.innerHTML='';
+  const moodColors=['#ef4444','#ef4444','#f59e0b','#f59e0b','#f59e0b','#22c55e','#22c55e','#22c55e','#22c55e','#6c63ff'];
+  for(let d=1;d<=dim;d++){
+    const dk=dateKey(d,state.month,state.year);
+    const m=state.days[dk]?.mood||null;
+    const wrap=document.createElement('div'); wrap.className='mb-wrap';
+    const bar=document.createElement('div'); bar.className='mb';
+    bar.style.height=m?`${(m/10)*100}%`:'4px';
+    bar.style.background=m?(moodColors[m-1]||'#6c63ff'):'var(--border)';
+    bar.title=`Day ${d}: ${m||'—'}`;
+    const lbl=document.createElement('div'); lbl.className='mb-lbl';
+    lbl.textContent=d%7===1?d:'';
+    wrap.appendChild(bar); wrap.appendChild(lbl); mc.appendChild(wrap);
+  }
+
+  // Weight SVG
+  const svg=document.getElementById('weight-svg');
+  if(weights.length>=2){
+    const W=300,H=70,P=6;
+    const vals=weights.map(w=>w.v);
+    const minV=Math.min(...vals)-0.5, maxV=Math.max(...vals)+0.5;
+    const pts=weights.map(w=>{
+      const x=P+(w.d-1)/(dim-1)*(W-P*2);
+      const y=P+(1-(w.v-minV)/(maxV-minV))*(H-P*2);
+      return `${x},${y}`;
+    }).join(' ');
+    svg.innerHTML=`<defs><linearGradient id="wg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#38bdf8" stop-opacity="0.2"/><stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/></linearGradient></defs><polyline points="${pts}" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linejoin="round"/>`;
+  } else {
+    svg.innerHTML=`<text x="10" y="35" fill="#555" font-size="11" font-family="Space Mono">No weight data yet</text>`;
+  }
+
+  // Heatmap
+  const hm=document.getElementById('month-heatmap');
+  hm.innerHTML='';
+  state.habits.forEach(h=>{
+    const row=document.createElement('div'); row.className='heatmap-row';
+    const lbl=document.createElement('div'); lbl.className='hm-label'; lbl.textContent=h; lbl.title=h;
+    const dots=document.createElement('div'); dots.className='hm-dots';
+    let cnt=0;
+    for(let d=1;d<=dim;d++){
+      const dk=dateKey(d,state.month,state.year);
+      const checked=state.days[dk]?.habits?.[h]||false;
+      if(checked) cnt++;
+      const dot=document.createElement('div'); dot.className='hm-dot';
+      dot.style.background=checked?'var(--green)':'var(--border)';
+      dot.title=`${h} — Day ${d}: ${checked?'✓':'✗'}`;
+      dots.appendChild(dot);
+    }
+    const pct=document.createElement('div');
+    const p=Math.round((cnt/dim)*100);
+    pct.className='hm-pct';
+    pct.style.color=p>=70?'var(--green)':p>=40?'var(--yellow)':'var(--red)';
+    pct.textContent=p+'%';
+    row.appendChild(lbl); row.appendChild(dots); row.appendChild(pct);
+    hm.appendChild(row);
+  });
+
+  // Cal + prot bars
+  renderBarChart('cal-bars',cals,2800,'var(--yellow)','');
+  renderBarChart('prot-bars',prots,300,'var(--pink)','g');
+}
+
+function renderBarChart(id,data,maxDefault,color,unit){
+  const cont=document.getElementById(id); cont.innerHTML='';
+  const max=data.length?Math.max(...data.map(d=>d.v),maxDefault):maxDefault;
+  const dim=daysInMonth(state.month,state.year);
+  for(let d=1;d<=dim;d++){
+    const entry=data.find(x=>x.d===d);
+    if(!entry) continue;
+    const row=document.createElement('div'); row.className='bar-row-sm';
+    const lbl=document.createElement('div'); lbl.className='bar-lbl-sm'; lbl.textContent=d;
+    const track=document.createElement('div'); track.className='bar-track';
+    const fill=document.createElement('div'); fill.className='bar-fill';
+    fill.style.width=`${(entry.v/max)*100}%`; fill.style.background=color;
+    track.appendChild(fill);
+    const val=document.createElement('div'); val.className='bar-val-sm';
+    val.textContent=unit?entry.v+unit:entry.v.toLocaleString();
+    row.appendChild(lbl); row.appendChild(track); row.appendChild(val);
+    cont.appendChild(row);
+  }
+  if(!data.length) cont.innerHTML='<div style="font-size:0.75rem;color:var(--muted);padding:8px">No data logged yet</div>';
+}
+
+// ─── WINS PAGE ────────────────────────────────────────────────────────────────
+function renderWinsPage(){
+  const list=document.getElementById('wins-list');
+  list.innerHTML='';
+  const dim=daysInMonth(state.month,state.year);
+  let found=false;
+  for(let d=dim;d>=1;d--){
+    const dk=dateKey(d,state.month,state.year);
+    const day=state.days[dk];
+    if(!day?.win) continue;
+    found=true;
+    const item=document.createElement('div'); item.className='win-item';
+    item.innerHTML=`<div class="win-date">${MONTHS[state.month].slice(0,3)} ${d}</div><div>🏆 ${day.win}</div>`;
+    list.appendChild(item);
+  }
+  if(!found) list.innerHTML='<div style="color:var(--muted);font-size:0.85rem;padding:20px 0">No wins logged yet. Save your daily W on the Today page!</div>';
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+function renderSettings(){
+  document.getElementById('set-month').value=state.month;
+  document.getElementById('set-year').value=state.year;
+  document.getElementById('set-goals').value=state.goals||'';
+  document.getElementById('set-groq-key').value=state.groqKey||'';
+  renderHabitsEditor();
+}
+
+function renderHabitsEditor(){
+  const ed=document.getElementById('habits-editor'); ed.innerHTML='';
+  state.habits.forEach((h,i)=>{
+    const row=document.createElement('div'); row.className='habit-edit-item';
+    row.innerHTML=`<input type="text" class="inp" value="${h}" id="habit-field-${i}" />
+      <button class="del-btn" onclick="removeHabit(${i})">✕</button>`;
+    ed.appendChild(row);
+  });
+}
+
+function addHabitField(){
+  state.habits.push('New habit');
+  save(); renderHabitsEditor();
+}
+
+function removeHabit(i){
+  state.habits.splice(i,1);
+  save(); renderHabitsEditor();
+}
+
+function saveHabits(){
+  state.habits=Array.from(document.querySelectorAll('[id^="habit-field-"]')).map(el=>el.value.trim()).filter(Boolean);
+  save(); showToast('Habits saved ✓'); renderHabitsEditor();
+}
+
+function saveGoals(){
+  state.goals=document.getElementById('set-goals').value;
+  save(); showToast('Goals saved ✓');
+}
+
+function saveGroqKey(){
+  state.groqKey=document.getElementById('set-groq-key').value.trim();
+  localStorage.setItem('groq_key',state.groqKey);
+  showToast('API key saved ✓');
+}
+
+function saveMonthSettings(){
+  state.month=parseInt(document.getElementById('set-month').value);
+  state.year=parseInt(document.getElementById('set-year').value);
+  save(); updateSidebarMonth(); showToast('Month updated ✓');
+}
+
+function updateSidebarMonth(){
+  const dim=daysInMonth(state.month,state.year);
+  document.getElementById('sidebar-month').textContent=MONTHS[state.month]+' '+state.year;
+  document.getElementById('sidebar-day').textContent=`Day ${todayDay()} of ${dim}`;
+}
+
+function clearAllData(){
+  if(!confirm('Clear ALL logged data for this month? This cannot be undone.')) return;
+  state.days={};
+  save(); showToast('Data cleared'); initToday();
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+load();
+updateSidebarMonth();
+initToday();
+</script>
+</body>
+</html>
